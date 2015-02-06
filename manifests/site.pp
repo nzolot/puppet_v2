@@ -19,6 +19,9 @@ class start () {
             /mysql/    => 'grp-mysql',
             default    => '',
             }
-        hiera_include('classes')
+
+    include puppettest
+
     }
 
+}
