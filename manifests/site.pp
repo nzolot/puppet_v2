@@ -21,7 +21,7 @@ class start () {
             }
 
     include puppettest
-
+    include puppettest2
     }
 
 }
