@@ -2,17 +2,17 @@
 class zabbix::server ()
 {
 #Define empty vars
-    $zabbix_server_name     = hiera('zabbix_server_name')
-    $zabbix_mysql_host      = hiera('zabbix_mysql_host')      #Define mysql host of Zabbix server DB
-    $zabbix_mysql_name      = hiera('zabbix_mysql_name')      #Define mysql DB name
-    $zabbix_mysql_user      = hiera('zabbix_mysql_user')      #Define user for zabbix
-    $zabbix_mysql_pass      = hiera('zabbix_mysql_pass')      #Define password for user above (cannot be blank!)
-    $zabbix_mysql_root_user = hiera('zabbix_mysql_root_user') #Define root mysql user
-    $zabbix_mysql_root_pass = hiera('zabbix_mysql_root_pass') #Define root mysql password (cannot be blank!)
-    $zabbix_mysql_base      = hiera('zabbix_mysql_base')      #Define database for zabbix
-    $zabbix_front_user      = hiera('zabbix_front_user')      #Define Username for frontend user
-    $zabbix_front_pass      = hiera('zabbix_front_pass')      #Define Password for frontend user
-    $zabbix_import_dir      = hiera('zabbix_import_dir')      #Define where configuration files are
+    $zabbix_server_name     = hiera('zabbix_server_name', 'zabbix')
+    $zabbix_mysql_host      = hiera('zabbix_mysql_host', 'localhost')      #Define mysql host of Zabbix server DB
+    $zabbix_mysql_name      = hiera('zabbix_mysql_name', 'zabbix')      #Define mysql DB name
+    $zabbix_mysql_user      = hiera('zabbix_mysql_user', 'zabbix')      #Define user for zabbix
+    $zabbix_mysql_pass      = hiera('zabbix_mysql_pass', 'zabbix')      #Define password for user above (cannot be blank!)
+    $zabbix_mysql_root_user = hiera('zabbix_mysql_root_user', 'root') #Define root mysql user
+    $zabbix_mysql_root_pass = hiera('zabbix_mysql_root_pass', '') #Define root mysql password (cannot be blank!)
+    $zabbix_mysql_base      = hiera('zabbix_mysql_base', 'zabbix')      #Define database for zabbix
+    $zabbix_front_user      = hiera('zabbix_front_user', 'zabbix')      #Define Username for frontend user
+    $zabbix_front_pass      = hiera('zabbix_front_pass', 'zabbix')      #Define Password for frontend user
+    $zabbix_import_dir      = hiera('zabbix_import_dir', '/etc/zabbix')      #Define where configuration files are
 
 
 #Services
