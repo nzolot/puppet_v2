@@ -1,0 +1,34 @@
+#!/bin/bash
+
+SERVER=<%= @zabbix_server_name %>
+USER=<%= @zabbix_front_user %>
+PASS=<%= @zabbix_front_pass %>
+URL=http://$SERVER/zabbix/api_jsonrpc.php
+INSTANCE=<%= hostname %>
+
+AUTH=`wget -O- -o /dev/null $URL --header 'Content-Type: application/json-rpc' --post-data "{\"jsonrpc\": \"2.0\",\"method\": \"user.login\",\"params\": {\"user\": \"$USER\",\"password\": \"$PASS\"},\"id\": 3}" | cut -d'"' -f8`
+if [[ -z $AUTH ]];then exit 1; fi #chech if auth done
+
+host_exists()
+{
+wget -O- -o /dev/null $URL --header 'Content-Type: application/json-rpc' --post-data "{\"jsonrpc\": \"2.0\", \"method\": \"host.exists\",\"params\": {\"host\": \"$1\"},\"auth\": \"$AUTH\", \"id\": 3}" | jq '.result'
+}
+
+get_host_id()
+{
+HOST_ID=`wget -O- -o /dev/null $URL --header 'Content-Type: application/json-rpc' --post-data "{\"jsonrpc\": \"2.0\",\"method\": \"host.get\",\"params\": {\"output\": \"extend\",\"filter\": {\"host\": [\"$1\"]}},\"auth\": \"$AUTH\",\"id\": 3}" | jq '.result[] | {hostid}' | jq '.hostid | tostring'`
+}
+
+disable_host()
+{
+wget -O- -o /dev/null $URL --header 'Content-Type: application/json-rpc' --post-data "{\"jsonrpc\": \"2.0\",\"method\": \"host.update\",\"params\": {\"hostid\": $HOST_ID,\"status\": 1},\"auth\": \"$AUTH\",\"id\": 3}"
+}
+
+if [ `host_exists $INSTANCE` == false ];
+    then
+    exit 0
+    else
+    get_host_id $INSTANCE
+    disable_host
+    exit 0
+fi

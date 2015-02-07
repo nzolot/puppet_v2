@@ -1,0 +1,49 @@
+#!/bin/bash
+
+PIDFILE="/etc/zabbix/zabbix_config_update.pid"
+if [ -f $PIDFILE ]; then
+echo "PROCESS ALREADY RUNNING!"
+exit 1
+else
+echo $0 > $PIDFILE
+
+SERVER=<%= @zabbix_server_name %>
+USER=<%= @zabbix_front_user %>
+PASS=<%= @zabbix_front_pass %>
+URL=http://$SERVER/zabbix/api_jsonrpc.php
+IMPORT_DIR=/etc/zabbix/zabbix_import
+
+AUTH=`wget -O- -o /dev/null $URL --header 'Content-Type: application/json-rpc' --post-data "{\"jsonrpc\": \"2.0\",\"method\": \"user.login\",\"params\": {\"user\": \"$USER\",\"password\": \"$PASS\"},\"id\": 2}" | cut -d'"' -f8`
+
+if [[ -z $AUTH ]];then #check auth
+rm $PIDFILE
+exit 1
+fi
+
+
+import_cfg()
+    {
+    IFS='
+    '
+    IMPORT_LIST=`ls -1 $1`
+    echo list=$IMPORT_LIST
+
+    for FILE in ${IMPORT_LIST}
+        do
+        SRC=`cat $1/$FILE | tr -d '\n' | sed -e 's/\"/\\\"/g'`
+#        wget -O- -o /dev/null $URL --header 'Content-Type: application/json-rpc' --post-data "{\"jsonrpc\": \"2.0\",\"method\": \"configuration.import\",\"params\": {\"format\": \"xml\",\"rules\": {\"templateLinkage\" : {\"createMissing\" : true}, \"templates\": {\"createMissing\": true,\"updateExisting\": true},\"hosts\": {\"createMissing\": true,\"updateExisting\": true},\"items\": {\"createMissing\": true,\"updateExisting\": true}},\"source\": \"$SRC\"},\"auth\": \"$AUTH\",\"id\": 2}"
+        wget -O- -o /dev/null $URL --header 'Content-Type: application/json-rpc' --post-data "{\"jsonrpc\": \"2.0\",\"method\": \"configuration.import\",\"params\": {\"format\": \"xml\",\"rules\": {\"applications\": {\"createMissing\": true,\"updateExisting\": true},\"discoveryRules\": {\"createMissing\": true,\"updateExisting\": true},\"graphs\": {\"createMissing\": true,\"updateExisting\": true},\"groups\": {\"createMissing\": true},\"hosts\": {\"createMissing\": true,\"updateExisting\": true},\"images \": {\"createMissing\": true,\"updateExisting\": true},\"items\": {\"createMissing\": true,\"updateExisting\": true},\"screens\": {\"createMissing\": true,\"updateExisting\": true},\"templateLinkage\" : {\"createMissing\" : true},\"templates\": {\"createMissing\": true,\"updateExisting\": true},\"triggers\": {\"createMissing\": true,\"updateExisting\": true}},\"source\": \"$SRC\"},\"auth\": \"$AUTH\",\"id\": 2}"
+        done
+}
+
+if [ -d $IMPORT_DIR/templates ] && [ -d $IMPORT_DIR/hosts ];
+ then
+ import_cfg $IMPORT_DIR/templates
+ import_cfg $IMPORT_DIR/hosts
+ else
+ import_cfg $IMPORT_DIR
+fi
+
+rm $PIDFILE
+exit 0
+fi

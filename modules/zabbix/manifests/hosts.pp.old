@@ -1,0 +1,31 @@
+#This class defines hosts, groups and templates;
+class zabbix::hosts
+()
+{
+
+    case $::hostname {
+        /mgmt/     : { $templates = [ 'Template OS Linux', 'Template ICMP Ping' ] }
+        /tomcat/   : { $templates = [ 'Template OS Linux', 'Template ICMP Ping' ] }
+        /mysql/    : { $templates = [ 'Template OS Linux', 'Template ICMP Ping' ] }
+        /balancer/ : { $templates = [ 'Template OS Linux', 'Template ICMP Ping' ] }
+        /zabbix/   : { $templates = [ 'Template OS Linux', 'Template ICMP Ping', 'Template App Zabbix Server' ] }
+        /jenkins/  : { $templates = [ 'Template OS Linux', 'Template ICMP Ping' ] }
+        default    : { $templates = [ 'Template ICMP Ping' ] }
+    }
+
+    case $::hostname {
+        /mgmt/     : { $groups = [ 'Linux servers', 'Management servers' ] }
+        /tomcat/   : { $groups = [ 'Linux servers', 'Web servers' ] }
+        /mysql/    : { $groups = [ 'Linux servers', 'Database servers' ] }
+        /balancer/ : { $groups = [ 'Linux servers', 'Web servers', 'Balancers' ] }
+        /zabbix/   : { $groups = [ 'Zabbix servers' ] }
+        /jenkins/  : { $groups = [ 'Linux servers' ] }
+        default    : { $groups = [ 'unknown' ] }
+    }
+
+    case $::hostname {
+        /tomcat/   : { $interfaces = [ 'Agent', 'JMX' ] }
+        default    : { $interfaces = [ 'Agent' ] }
+    }
+
+}

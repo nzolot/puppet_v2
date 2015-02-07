@@ -1,0 +1,127 @@
+#!/bin/bash
+
+SERVER=<%= @zabbix_server_name %>
+USER=$1
+PASS=$2
+URL=http://$SERVER/zabbix/api_jsonrpc.php
+INSTANCE=<%= hostname %>
+
+TEMPLATES_LIST=( <% scope['hosts::templates'].each do |template| -%>"<%= template -%>" <% end -%>)
+GROUP_LIST=( <% scope['hosts::groups'].each do |group| -%>"<%= group -%>" <% end -%>)
+INTERFACE_LIST=( <% scope['hosts::interfaces'].each do |interface| -%>"<%= interface -%>" <% end -%>)
+
+
+AUTH=`wget -O- -o /dev/null $URL --header 'Content-Type: application/json-rpc' --post-data "{\"jsonrpc\": \"2.0\",\"method\": \"user.login\",\"params\": {\"user\": \"$USER\",\"password\": \"$PASS\"},\"id\": 3}" | cut -d'"' -f8`
+if [[ -z $AUTH ]];then exit 1; fi #chech if auth done
+
+host_exists()
+{
+wget -O- -o /dev/null $URL --header 'Content-Type: application/json-rpc' --post-data "{\"jsonrpc\": \"2.0\", \"method\": \"host.exists\",\"params\": {\"host\": \"$1\"},\"auth\": \"$AUTH\", \"id\": 3}" | jq '.result'
+}
+
+get_group_ids()
+{
+    GROUP_IDS=()
+    for GROUP in "${GROUP_LIST[@]}"
+    do
+        check=`wget -O- -o /dev/null $URL --header 'Content-Type: application/json-rpc' --post-data "{\"jsonrpc\": \"2.0\", \"method\": \"hostgroup.exists\",\"params\": {\"name\": \"$GROUP\"},\"auth\": \"$AUTH\", \"id\": 3}" | jq '.result'`
+        if [ $check == false ];
+            then
+            result=`wget -O- -o /dev/null $URL --header 'Content-Type: application/json-rpc' --post-data "{\"jsonrpc\": \"2.0\",\"method\": \"hostgroup.create\",\"params\": {\"name\": \"$GROUP\"},\"auth\": \"$AUTH\",\"id\": 3}" | jq '.result | {groupids}' | jq '.groupids | tostring ' | tr -d '[]' `
+            else
+            result=`wget -O- -o /dev/null $URL --header 'Content-Type: application/json-rpc' --post-data "{\"jsonrpc\": \"2.0\",\"method\": \"hostgroup.get\",\"params\": {\"output\": \"extend\",\"filter\": {\"name\": [\"$GROUP\"]}},\"auth\": \"$AUTH\",\"id\": 3}" | jq '.result' | tr -d '[]' | jq '.groupid | tostring'`
+        fi
+        GROUP_IDS=($GROUP_IDS $result)
+    done
+
+    for i in ${!GROUP_IDS[*]}; do
+        group_count=$((${#GROUP_IDS[@]}-1))
+        [ $i -lt $group_count ] && group_json="$group_json {\"groupid\":${GROUP_IDS[$i]}},"
+        [ $i -eq $group_count ] && group_json="$group_json {\"groupid\":${GROUP_IDS[$i]}}"
+    done
+}
+
+
+get_template_ids()
+{
+
+    TEMPLATES_IDS=()
+    for TEMPLATE in "${TEMPLATES_LIST[@]}"
+    do
+        check=`wget -O- -o /dev/null $URL --header 'Content-Type: application/json-rpc' --post-data "{\"jsonrpc\": \"2.0\",\"method\": \"template.exists\",\"params\": {\"host\": \"$TEMPLATE\"},\"auth\": \"$AUTH\",\"id\": 3}" | jq '.result'`
+        if [ $check == true ];
+            then
+            result2=`wget -O- -o /dev/null $URL --header 'Content-Type: application/json-rpc' --post-data "{\"jsonrpc\": \"2.0\",\"method\": \"template.get\",\"params\": {\"output\": \"extend\",\"filter\": {\"host\": [\"$TEMPLATE\"]}},\"auth\": \"$AUTH\",\"id\": 3}" | jq '.result' | tr -d '[]' | jq '.templateid | tostring'`
+            TEMPLATES_IDS+=("$result2")
+        fi
+    done
+
+    for i in ${!TEMPLATES_IDS[*]}; do
+        template_count=$((${#TEMPLATES_IDS[@]}-1))
+        [ $i -lt $template_count ] && template_json="$template_json {\"templateid\":${TEMPLATES_IDS[$i]}},"
+        [ $i -eq $template_count ] && template_json="$template_json {\"templateid\":${TEMPLATES_IDS[$i]}}"
+    done
+
+}
+
+
+get_interfaces()
+{
+    for i in ${!INTERFACE_LIST[*]}; do
+    interface_count=$((${#INTERFACE_LIST[@]}-1))
+    case ${INTERFACE_LIST[$i]} in
+        Agent)
+            interface="{\"type\": 1,\"main\": 1,\"useip\": 0,\"ip\": \"\",\"dns\": \"$1\",\"port\": \"10050\"}"
+            ;;
+        SNMP)
+            interface="{\"type\": 2,\"main\": 1,\"useip\": 0,\"ip\": \"\",\"dns\": \"$1\",\"port\": \"161\"}"
+            ;;
+        IPMI)
+            interface="{\"type\": 3,\"main\": 1,\"useip\": 0,\"ip\": \"\",\"dns\": \"$1\",\"port\": \"1234\"}"
+            ;;
+        JMX)
+            interface="{\"type\": 4,\"main\": 1,\"useip\": 0,\"ip\": \"\",\"dns\": \"$1\",\"port\": \"8004\"}"
+            ;;
+    esac
+    [ $i -lt $interface_count ] && interface_json="$interface_json $interface,"
+    [ $i -eq $interface_count ] && interface_json="$interface_json $interface"
+    done
+
+
+}
+
+
+
+get_host_id()
+{
+HOST_ID=`wget -O- -o /dev/null $URL --header 'Content-Type: application/json-rpc' --post-data "{\"jsonrpc\": \"2.0\",\"method\": \"host.get\",\"params\": {\"output\": \"extend\",\"filter\": {\"host\": [\"$1\"]}},\"auth\": \"$AUTH\",\"id\": 3}" | jq '.result[] | {hostid}' | jq '.hostid | tostring'`
+}
+
+update_host_templates()
+{
+wget -O- -o /dev/null $URL --header 'Content-Type: application/json-rpc' --post-data "{\"jsonrpc\": \"2.0\",\"method\": \"host.update\",\"params\": {\"hostid\": $HOST_ID,\"groups\": [$group_json],\"templates\": [$template_json]},\"auth\": \"$AUTH\",\"id\": 3}" >/dev/null
+}
+create_host()
+{
+wget -O- -o /dev/null $URL --header 'Content-Type: application/json-rpc' --post-data "{\"jsonrpc\": \"2.0\",\"method\": \"host.create\",\"params\": {\"host\": \"$1\",\"interfaces\": [$interface_json],\"groups\": [$group_json],\"templates\": [$template_json]},\"auth\": \"$AUTH\",\"id\": 3}"
+}
+
+
+
+#JOB
+if [ `host_exists $INSTANCE` == false ];
+    then
+    #creating host
+    get_group_ids
+    get_interfaces $INSTANCE
+    get_template_ids
+    create_host $INSTANCE
+    else
+    #updating host
+    get_host_id $INSTANCE
+    get_group_ids $INSTANCE
+    get_interfaces $INSTANCE
+    get_template_ids $INSTANCE
+    update_host_templates $INSTANCE
+fi
+
