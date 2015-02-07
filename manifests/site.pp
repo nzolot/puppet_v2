@@ -9,6 +9,11 @@
 
 class start () {
 
+    node 'centos-postgress.loc' {
+        notify {"hello world": }
+    }
+
+
     node 'default' {
         $machinegroup = $hostname ? {
             /mgmt/     => 'grp-mgmt',
@@ -17,11 +22,12 @@ class start () {
             /tomcat/   => 'grp-tomcat',
             /jenkins/  => 'grp-jenkins',
             /mysql/    => 'grp-mysql',
+
             default    => '',
             }
+    
 
     include puppettest
     include puppettest2
     }
-
 }
